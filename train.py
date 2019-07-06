@@ -37,7 +37,6 @@ if 1:
     sched.tick_kimg_dict = {}
     sched.tick_kimg_base = 5
 
-
     # Dataset.
     desc += '-custom'
     dataset = EasyDict(tfrecord_dir='custom')
