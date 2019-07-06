@@ -136,7 +136,9 @@ def training_loop(
     resume_run_id           = None,     # Run ID or network pkl to resume training from, None = start from scratch.
     resume_snapshot         = None,     # Snapshot index to resume training from, None = autodetect.
     resume_kimg             = 0.0,      # Assumed training progress at the beginning. Affects reporting and training schedule.
-    resume_time             = 0.0):     # Assumed wallclock time at the beginning. Affects reporting.
+    resume_time             = 0.0,      # Assumed wallclock time at the beginning. Affects reporting.
+    save_current_ticks      = 1,        # How often to update the "current" snapshot
+    ):
 
     # Initialize dnnlib and TensorFlow.
     ctx = dnnlib.RunContext(submit_config, train)
@@ -148,9 +150,17 @@ def training_loop(
     # Construct networks.
     with tf.device('/gpu:0'):
         if resume_run_id is not None:
-            network_pkl = misc.locate_network_pkl(resume_run_id, resume_snapshot)
-            print('Loading networks from "%s"...' % network_pkl)
-            G, D, Gs = misc.load_pkl(network_pkl)
+            if resume_run_id == 'auto':
+                resume_run_id = misc.locate_last_run_id()
+                network_pkl = misc.locate_network_pkl(resume_run_id, 'current')
+                
+                print('Loading networks from "%s"...' % network_pkl)
+                G, D, Gs, resume_kimg = misc.load_pkl(network_pkl)
+                pkl = os.path.join(submit_config.run_dir, 'network-current.pkl')
+            else:
+                network_pkl = misc.locate_network_pkl(resume_run_id, resume_snapshot)
+                print('Loading networks from "%s"...' % network_pkl)
+                G, D, Gs = misc.load_pkl(network_pkl)
         else:
             print('Constructing networks...')
             G = tflib.Network('G', num_channels=training_set.shape[0], resolution=training_set.shape[1], label_size=training_set.label_size, **G_args)
@@ -262,6 +272,9 @@ def training_loop(
                 pkl = os.path.join(submit_config.run_dir, 'network-snapshot-%06d.pkl' % (cur_nimg // 1000))
                 misc.save_pkl((G, D, Gs), pkl)
                 metrics.run(pkl, run_dir=submit_config.run_dir, num_gpus=submit_config.num_gpus, tf_config=tf_config)
+            if cur_tick % save_current_ticks == 0:
+                pkl = os.path.join(submit_config.run_dir, 'network-current.pkl')
+                misc.save_pkl((G, D, Gs, cur_nimg), pkl)
 
             # Update summaries and RunContext.
             metrics.update_autosummaries()

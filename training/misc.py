@@ -119,6 +119,12 @@ def list_network_pkls(run_id_or_run_dir, include_final=True):
         del pkls[0]
     return pkls
 
+def locate_last_run_id():
+    allpickles = sorted(glob.glob(os.path.join(config.result_dir, '0*', 'network-*.pkl')))
+    latest_pickle = allpickles[-1]
+    resume_run_id = os.path.basename(os.path.dirname(latest_pickle))
+    return resume_run_id
+
 def locate_network_pkl(run_id_or_run_dir_or_network_pkl, snapshot_or_network_pkl=None):
     for candidate in [snapshot_or_network_pkl, run_id_or_run_dir_or_network_pkl]:
         if isinstance(candidate, str):
